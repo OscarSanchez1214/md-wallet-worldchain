@@ -8,12 +8,13 @@
     "build": "vite build",
     "preview": "vite preview"
   },
+  
 "dependencies": {
   "@worldcoin/minikit-js": "^1.0.0",
   "ethers": "^6.10.0",
   "react": "^18.3.1",
   "react-dom": "^18.3.1",
-  "react-qr-reader": "3.0.0"
+  "react-weblineindia-qr-reader": "^1.1.0"
 },
 
   "devDependencies": {
