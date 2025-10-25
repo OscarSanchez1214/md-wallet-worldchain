@@ -1,31 +1,28 @@
 "use client";
 
-import QrScanner from "react-qr-scanner";
+import { QrReader } from "react-qr-reader";
 
 export const QRScanner = ({ onScan }: { onScan: (address: string) => void }) => {
-  const handleScan = (data: any) => {
-    if (data && data.text) {
-      onScan(data.text);
+  const handleScan = (result: any) => {
+    if (result?.text) {
+      onScan(result.text);
     }
   };
 
-  const handleError = (err: any) => {
-    console.error("Error al escanear QR:", err);
-  };
-
-  const previewStyle = {
-    height: 240,
-    width: "100%",
+  const handleError = (error: any) => {
+    console.error("Error al escanear QR:", error);
   };
 
   return (
     <div className="mt-4">
       <h3 className="font-semibold mb-2">Escanear QR</h3>
-      <QrScanner
-        delay={300}
-        onError={handleError}
-        onScan={handleScan}
-        style={previewStyle}
+      <QrReader
+        onResult={(result, error) => {
+          if (!!result) handleScan(result);
+          if (!!error) handleError(error);
+        }}
+        constraints={{ facingMode: "environment" }}
+        style={{ width: "100%" }}
       />
     </div>
   );
