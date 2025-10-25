@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import { QrReader } from "react-qr-reader-es6";
+import QrScanner from "react-qr-scanner-2";
 
 // Dirección del contrato MD en WorldChain
 const TOKEN_ADDRESS = "0x6335c1F2967A85e98cCc89dA0c87e672715284dB";
