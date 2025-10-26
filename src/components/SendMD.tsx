@@ -1,32 +1,60 @@
 "use client";
-import { useState } from "react";
-import { MiniKit } from "@worldcoin/minikit-js";
-import { MD_TOKEN } from "../lib/config";
-import { parseUnits } from "ethers";
 
-export function SendMD({ defaultTo }: { defaultTo?: string }) {
-  const [to, setTo] = useState(defaultTo || "");
-  const [amount, setAmount] = useState("0.1");
+import React, { useState } from "react";
+import { ethers } from "ethers";
 
-  const send = async () => {
-    if (!MiniKit?.isInstalled?.()) { alert("Abre en World App"); return; }
-    const tokenAmount = parseUnits(amount, 18).toString(); // cambiar decimals si no son 18
-    const payload = {
-      reference: "pay-" + Date.now(),
-      to,
-      tokens: [{ symbol: "MD", token_address: MD_TOKEN, token_amount: tokenAmount }],
-      description: `Enviar ${amount} MD`
-    };
-    const res = await MiniKit.commandsAsync.pay(payload);
-    if (res?.finalPayload?.status === "success") alert("Enviado");
+interface SendMDProps {
+  walletAddress: string;
+  signer: ethers.Signer | null;
+  tokenAddress: string;
+}
+
+export const SendMD: React.FC<SendMDProps> = ({ walletAddress, signer, tokenAddress }) => {
+  const [to, setTo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [status, setStatus] = useState("");
+
+  const sendTokens = async () => {
+    if (!signer) return alert("Conecta tu billetera primero.");
+    try {
+      setStatus("Enviando...");
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        ["function transfer(address to, uint amount) returns (bool)"],
+        signer
+      );
+
+      const decimals = 18;
+      const tx = await erc20.transfer(to, ethers.parseUnits(amount, decimals));
+      await tx.wait();
+      setStatus("✅ Transacción completada.");
+    } catch (error: any) {
+      console.error(error);
+      setStatus("❌ Error al enviar.");
+    }
   };
 
   return (
-    <div>
-      <input value={to} onChange={e=>setTo(e.target.value)} placeholder="Dirección" />
-      <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Cantidad" />
-      <button onClick={send}>Enviar</button>
+    <div className="flex flex-col gap-3">
+      <h2 className="text-xl font-semibold">Enviar MD</h2>
+      <input
+        type="text"
+        placeholder="Dirección destino"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        className="border rounded p-2"
+      />
+      <input
+        type="number"
+        placeholder="Cantidad MD"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        className="border rounded p-2"
+      />
+      <button onClick={sendTokens} className="bg-blue-600 text-white p-2 rounded">
+        Enviar
+      </button>
+      {status && <p>{status}</p>}
     </div>
   );
-}
-
+};
