@@ -1,28 +1,44 @@
 "use client";
 import { useEffect, useState } from "react";
+import { MiniKit } from "@worldcoin/minikit-js";
 import { ethers } from "ethers";
-import { MD_CONTRACT, MD_ABI, getProvider } from "../lib/worldchain";
+import { MD_TOKEN, RPC_URL } from "../lib/config";
 
-export const WalletInfo = ({ address }: { address: string }) => {
-  const [balance, setBalance] = useState<string>("0");
+const MD_ABI = ["function balanceOf(address) view returns (uint256)","function decimals() view returns (uint8)","function symbol() view returns (string)"];
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      const provider = getProvider();
-      const contract = new ethers.Contract(MD_CONTRACT, MD_ABI, provider);
-      const bal = await contract.balanceOf(address);
-      const decimals = await contract.decimals();
-      setBalance(ethers.formatUnits(bal, decimals));
-    };
-    if (address) fetchBalance();
-  }, [address]);
+export function WalletInfo() {
+  const [address, setAddress] = useState<string | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
+
+  const connectAndRead = async () => {
+    if (!MiniKit?.isInstalled?.()) { alert("Abre en World App"); return; }
+    const { finalPayload } = await MiniKit.commandsAsync.walletAuth({ requestId: "auth" + Date.now(), statement: "Conectar MD Wallet" });
+    if (finalPayload?.status === "success" && finalPayload.address) {
+      setAddress(finalPayload.address);
+      await readBalance(finalPayload.address);
+    }
+  };
+
+  const readBalance = async (addr: string) => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const c = new ethers.Contract(MD_TOKEN, MD_ABI, provider);
+    const [raw, decimals, symbol] = await Promise.all([c.balanceOf(addr), c.decimals(), c.symbol()]);
+    setBalance(ethers.formatUnits(raw, decimals) + " " + symbol);
+  };
+
+  useEffect(()=>{ // si MiniKit expone address ya
+    const maybe = (MiniKit as any)?.walletAddress ?? null;
+    if (maybe) { setAddress(maybe); readBalance(maybe); }
+  },[]);
 
   return (
-    <div className="bg-gray-100 p-4 rounded-xl shadow-md mt-4 w-full text-center">
-      <h2 className="text-lg font-semibold">Mi billetera</h2>
-      <p className="text-sm text-gray-600">Dirección:</p>
-      <p className="font-mono text-xs break-words">{address}</p>
-      <h3 className="text-xl font-bold mt-2">{balance} MD</h3>
+    <div>
+      {!address ? <button onClick={connectAndRead}>Conectar (World App)</button> :
+      <div>
+        <div>{address}</div>
+        <div>{balance ?? "Cargando..."}</div>
+        <button onClick={() => readBalance(address)}>Refrescar</button>
+      </div>}
     </div>
   );
-};
+}
