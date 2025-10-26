@@ -1,105 +1,59 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import QrScanner from "react-qr-scanner-2";
+import QRScanner from "./components/QRScanner";
+import { ReceiveMD } from "./components/ReceiveMD";
+import { SendMD } from "./components/SendMD";
 
-// Dirección del contrato MD en WorldChain
-const TOKEN_ADDRESS = "0x6335c1F2967A85e98cCc89dA0c87e672715284dB";
-const TOKEN_ABI = [
-  "function balanceOf(address) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function symbol() view returns (string)"
-];
+const TOKEN_MD = "0x6335c1F2967A85e98cCc89dA0c87e672715284dB";
 
-const App: React.FC = () => {
-  const [walletAddress, setWalletAddress] = useState<string>("");
-  const [tokenBalance, setTokenBalance] = useState<string>("-");
-  const [scannedAddress, setScannedAddress] = useState<string | null>(null);
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
+export default function App() {
+  const [address, setAddress] = useState("");
+  const [signer, setSigner] = useState<ethers.Signer | null>(null);
+  const [balance, setBalance] = useState("0");
 
-  // 🔹 Conectar billetera (ej: World App o MetaMask)
   const connectWallet = async () => {
-    try {
-      if (!window.ethereum) {
-        alert("Instala una billetera compatible como MetaMask o World App.");
-        return;
-      }
-      const ethProvider = new ethers.BrowserProvider(window.ethereum);
-      setProvider(ethProvider);
-      const accounts = await ethProvider.send("eth_requestAccounts", []);
-      setWalletAddress(accounts[0]);
-    } catch (err) {
-      console.error("Error al conectar billetera:", err);
-    }
+    if (!window.ethereum) return alert("Instala una billetera como World App o MetaMask.");
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+    setSigner(signer);
+    setAddress(accounts[0]);
   };
 
-  // 🔹 Consultar saldo del token MD
-  const loadBalance = async () => {
-    if (!provider || !walletAddress) return;
-    const contract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, provider);
-    const decimals = await contract.decimals();
-    const balance = await contract.balanceOf(walletAddress);
-    const symbol = await contract.symbol();
-    setTokenBalance(
-      `${ethers.formatUnits(balance, decimals)} ${symbol}`
-    );
+  const fetchBalance = async () => {
+    if (!signer) return;
+    try {
+      const erc20 = new ethers.Contract(TOKEN_MD, ["function balanceOf(address) view returns (uint256)"], signer);
+      const raw = await erc20.balanceOf(address);
+      setBalance(ethers.formatUnits(raw, 18));
+    } catch (e) {
+      console.error("Error obteniendo balance:", e);
+    }
   };
 
   useEffect(() => {
-    if (provider && walletAddress) loadBalance();
-  }, [provider, walletAddress]);
-
-  // 🔹 Escaneo de código QR
-  const handleScan = (result: any) => {
-    if (result?.text) {
-      setScannedAddress(result.text);
-    }
-  };
+    if (address && signer) fetchBalance();
+  }, [address, signer]);
 
   return (
-    <div className="app-container" style={{ padding: "1rem", textAlign: "center" }}>
-      <h1>💠 MD Wallet WorldChain</h1>
+    <div className="flex flex-col items-center gap-6 p-6">
+      <h1 className="text-2xl font-bold">MD Wallet - WorldChain</h1>
 
-      {!walletAddress ? (
-        <button onClick={connectWallet} className="btn">
-          🔗 Conectar billetera
+      {!address ? (
+        <button onClick={connectWallet} className="bg-green-600 text-white px-4 py-2 rounded">
+          Conectar Billetera
         </button>
       ) : (
         <>
-          <p><strong>Tu dirección:</strong><br />{walletAddress}</p>
-          <p><strong>Saldo MD:</strong> {tokenBalance}</p>
-
-          <button onClick={loadBalance} className="btn">🔄 Actualizar saldo</button>
-
-          <hr style={{ margin: "2rem 0" }} />
-
-          <h3>📷 Escanear QR para enviar tokens</h3>
-          <div style={{ width: "250px", margin: "auto" }}>
-            <QrReader
-              onResult={(result, error) => {
-                if (result) handleScan(result);
-                if (error) console.warn(error);
-              }}
-              constraints={{ facingMode: "environment" }}
-            />
-          </div>
-
-          {scannedAddress && (
-            <div style={{ marginTop: "1rem" }}>
-              <p>Dirección escaneada:</p>
-              <code>{scannedAddress}</code>
-              <button
-                className="btn"
-                style={{ marginTop: "0.5rem" }}
-                onClick={() => alert(`Simular envío de tokens a ${scannedAddress}`)}
-              >
-                🚀 Enviar tokens
-              </button>
-            </div>
-          )}
+          <p className="text-sm break-words">Conectado: {address}</p>
+          <h3 className="text-lg font-semibold">Saldo: {balance} MD</h3>
+          <ReceiveMD walletAddress={address} />
+          <SendMD walletAddress={address} signer={signer} tokenAddress={TOKEN_MD} />
+          <QRScanner onScan={(data) => alert(`QR detectado: ${data}`)} />
         </>
       )}
     </div>
   );
-};
-
-export default App;
+}
